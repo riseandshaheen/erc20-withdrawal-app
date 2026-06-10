@@ -1,0 +1,72 @@
+name: build-and-release
+run-name: Testing and Releasing Rives barebones with Doom
+on: [push, workflow_dispatch]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    environment: Main
+
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Cartesi Machine
+        run: |
+          curl -s -L https://github.com/cartesi/machine-emulator/releases/download/v0.20.0/machine-emulator_${{ runner.arch }}.deb -o ${{ runner.temp }}/machine-emulator.deb
+
+          # Update list of available packages
+          sudo apt-get update
+
+          # Install cartesi-machine
+          sudo apt-get install -y ${{ runner.temp }}/machine-emulator.deb
+
+      - name: Check Cartesi Machine
+        run: |
+          cartesi-machine --version
+
+      - name: Create ERC-20 withdrawal test application
+        run: |
+          make
+
+      - name: Create artifact archive
+        run: |
+          cd .cartesi/image && tar -czf ../../erc20-withdrawal-snapshot.tar.gz * && cd ../..
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: erc20-withdrawal-snapshot
+          path: |
+            erc20-withdrawal-snapshot.tar.gz
+          retention-days: 2
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find artifacts -name "*.tar.gz" -exec cp {} release-assets/ \;
+          ls -la release-assets/
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v3
+        with:
+          prerelease: true
+          files: release-assets/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
