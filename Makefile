@@ -42,8 +42,8 @@ erc20-withdrawal-dapp: .cartesi/image ## ERC-20 withdrawal test dapp
 	TOKEN=$${CARTESI_DEVNET_TEST_ERC20_ADDRESS:-0x88A2120B7068E78692C8fd12E751d610B6377E4d}; \
 	cartesi-machine --ram-length=128Mi \
 		--ram-image=$(DOWNLOADS_DIR)/linux.bin \
-		--flash-drive=label:root,data_filename:$(DOWNLOADS_DIR)/rootfs.ext2 \
-		--flash-drive=label:accounts,length:4Mi,mke2fs:false,mount:false,user:dapp \
+		--flash-drive=label:root,filename:$(DOWNLOADS_DIR)/rootfs.ext2 \
+		--flash-drive=label:accounts,length:4Mi,mount:false,user:dapp \
 		--env=TRUSTED_ERC20_PORTAL=$$PORTAL \
 		--env=TRUSTED_ERC20_TOKEN=$$TOKEN \
 		--append-init-file=install.sh \
