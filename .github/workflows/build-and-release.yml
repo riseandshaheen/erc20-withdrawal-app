@@ -29,7 +29,7 @@ jobs:
 
       - name: Create ERC-20 withdrawal test application
         run: |
-          make
+          make CARTESI_DEVNET_ERC20_PORTAL_ADDRESS=0xACA6586A0Cf05bD831f2501E7B4aea550dA6562D CARTESI_DEVNET_TEST_ERC20_ADDRESS=0x5138f529B77B4e0a7c84B77E79c4335D31938fed
 
       - name: Create artifact archive
         run: |
