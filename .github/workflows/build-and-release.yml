@@ -15,7 +15,7 @@ jobs:
 
       - name: Install Cartesi Machine
         run: |
-          curl -s -L https://github.com/cartesi/machine-emulator/releases/download/v0.20.0/machine-emulator_amd64.deb -o ${{ runner.temp }}/machine-emulator.deb
+          curl -s -L https://github.com/cartesi/machine-emulator/releases/download/v0.21.0/machine-emulator_amd64.deb -o ${{ runner.temp }}/machine-emulator.deb
 
           # Update list of available packages
           sudo apt-get update
