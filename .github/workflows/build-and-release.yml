@@ -1,6 +1,28 @@
 name: build-and-release
 run-name: Releasing ERC-20 withdrawal test application
-on: [push, workflow_dispatch]
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      erc20_portal:
+        description: Trusted ERC-20 portal address (empty = Makefile default, rollups-contracts v3.0.0-alpha.10 portal)
+        required: false
+        default: ""
+      erc20_token:
+        description: Trusted ERC-20 token address (empty = Makefile default, devnet TestUsdc)
+        required: false
+        default: ""
+      asset_name:
+        description: Name of the snapshot archive, without .tar.gz
+        required: false
+        default: erc20-withdrawal-snapshot
+      release_tag:
+        description: Upload the snapshot to this release tag (created as a prerelease if missing; a same-named asset is replaced). Empty = no upload.
+        required: false
+        default: ""
+
+env:
+  ASSET_NAME: ${{ inputs.asset_name || 'erc20-withdrawal-snapshot' }}
 
 jobs:
   build-and-test:
@@ -10,6 +32,9 @@ jobs:
     permissions:
       packages: write
       contents: read
+    outputs:
+      template_hash: ${{ steps.build.outputs.template_hash }}
+      archive_sha256: ${{ steps.archive.outputs.sha256 }}
     steps:
       - uses: actions/checkout@v6
 
@@ -28,20 +53,72 @@ jobs:
           cartesi-machine --version
 
       - name: Create ERC-20 withdrawal test application
+        id: build
+        env:
+          # Empty values fall back to the Makefile defaults.
+          CARTESI_DEVNET_ERC20_PORTAL_ADDRESS: ${{ inputs.erc20_portal }}
+          CARTESI_DEVNET_TEST_ERC20_ADDRESS: ${{ inputs.erc20_token }}
         run: |
-          make
+          make 2>&1 | tee build.log
+          hash=$(grep -oE '^[0-9]+: 0x[0-9a-f]{64}$' build.log | tail -1 | cut -d' ' -f2)
+          test -n "$hash"
+          echo "template_hash=$hash" >> "$GITHUB_OUTPUT"
 
       - name: Create artifact archive
+        id: archive
         run: |
-          cd .cartesi/image && tar -czf ../../erc20-withdrawal-snapshot.tar.gz * && cd ../..
+          # Plain GNU tar archive: files at the archive root, no extended attributes,
+          # fixed owner and timestamps, so it unpacks cleanly anywhere.
+          cd .cartesi/image
+          tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='@0' --format=gnu -cf - * \
+            | gzip -n > "../../$ASSET_NAME.tar.gz"
+          cd ../..
+          sha=$(sha256sum "$ASSET_NAME.tar.gz" | cut -d' ' -f1)
+          echo "sha256=$sha" >> "$GITHUB_OUTPUT"
+          {
+            echo "### $ASSET_NAME.tar.gz"
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Template hash | \`${{ steps.build.outputs.template_hash }}\` |"
+            echo "| Archive sha256 | \`$sha\` |"
+            echo "| Trusted portal | \`${{ inputs.erc20_portal || 'Makefile default' }}\` |"
+            echo "| Trusted token | \`${{ inputs.erc20_token || 'Makefile default' }}\` |"
+            echo "| Commit | \`$GITHUB_SHA\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: erc20-withdrawal-snapshot
+          name: ${{ env.ASSET_NAME }}
           path: |
-            erc20-withdrawal-snapshot.tar.gz
+            ${{ env.ASSET_NAME }}.tar.gz
           retention-days: 2
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download snapshot
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.ASSET_NAME }}
+
+      - name: Upload snapshot to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.release_tag }}
+        run: |
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+              --title "$TAG" \
+              --notes "Template hash: ${{ needs.build-and-test.outputs.template_hash }}"
+          fi
+          gh release upload "$TAG" "$ASSET_NAME.tar.gz" --repo "$GITHUB_REPOSITORY" --clobber
+          echo "Uploaded $ASSET_NAME.tar.gz (sha256 ${{ needs.build-and-test.outputs.archive_sha256 }}, template hash ${{ needs.build-and-test.outputs.template_hash }}) to $TAG" >> "$GITHUB_STEP_SUMMARY"
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
