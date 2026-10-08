@@ -57,9 +57,12 @@ first all-zero record marks the end of the array.
 
 | Offset | Size     | Field             | Encoding                          |
 | ------ | -------- | ----------------- | --------------------------------- |
-| 0      | 8 bytes  | balance           | `uint64`, little-endian           |
-| 8      | 20 bytes | account address   | 20-byte EVM address               |
-| 28     | 4 bytes  | reserved          | zero padding                      |
+| 0      | 12 bytes | balance           | `uint96`, little-endian           |
+| 12     | 20 bytes | account address   | 20-byte EVM address               |
+
+This is the USD account layout that rollups-contracts v3.0.0-alpha.10 (`LibUsdAccount`) decodes, as
+used by Cartesi Rollups Node v2.0.0-alpha.13. The script still does its arithmetic in 64 bits and stores
+the balance zero-extended to 12 bytes.
 
 - Capacity: `4 MiB / 32 bytes = 131072` accounts (`2^17`), matching the deploy parameter
   `log2_max_num_of_accounts = 17`.
@@ -136,8 +139,12 @@ The build wires two trusted addresses into the machine image as environment vari
 
 | Variable                              | Default (devnet)                              | Meaning                                  |
 | ------------------------------------- | --------------------------------------------- | ---------------------------------------- |
-| `CARTESI_DEVNET_ERC20_PORTAL_ADDRESS` | `0x22E57511C30CcE6CDaa742E13CE3b774fDC663b1`  | Only sender accepted for deposits        |
-| `CARTESI_DEVNET_TEST_ERC20_ADDRESS`   | `0x88A2120B7068E78692C8fd12E751d610B6377E4d`  | The single ERC-20 token handled          |
+| `CARTESI_DEVNET_ERC20_PORTAL_ADDRESS` | `0x3332DE61a8BB9aC84893b2f552Fe81C9a6dC5419`  | Only sender accepted for deposits        |
+| `CARTESI_DEVNET_TEST_ERC20_ADDRESS`   | `0x7a051EDffC0884cd88d4a377F4C87BE074CF6c81`  | The single ERC-20 token handled (devnet TestUsdc) |
+
+The ERC-20 portal address is the same on every network that has rollups-contracts v3.0.0-alpha.10. Set
+`CARTESI_DEVNET_TEST_ERC20_ADDRESS` to the token of the target network when building for it; the
+withdrawal output builder used at deploy time must pay out that same token.
 
 ## Building
 
@@ -145,7 +152,8 @@ Building produces a stored Cartesi Machine snapshot under `.cartesi/image/`.
 
 ### Prerequisites
 
-- [`cartesi-machine`](https://github.com/cartesi/machine-emulator) (the emulator CLI), v0.20.0.
+- [`cartesi-machine`](https://github.com/cartesi/machine-emulator) (the emulator CLI), v0.21.0 (the
+  version Cartesi Rollups Node v2.0.0-alpha.13 runs; snapshots from v0.20 do not load).
 - Standard build tools (`make`, `wget`, `shasum`, `jq`).
 
 ### Steps
@@ -175,7 +183,7 @@ on-chain contracts need to validate accounts-drive proofs:
   "log2_leaves_per_account": 0,                              // 1 leaf per account record
   "log2_max_num_of_accounts": 17,                            // up to 131072 accounts
   "accounts_drive_start_index": <derived from config.json>,  // which flash drive holds balances
-  "withdrawal_output_builder": "0x0745787835A019cd4dae8EDB541Fbc0647793d63"
+  "withdrawal_output_builder": "0xB4D253c7a110241561B3eD6d632846dF7d4e9Af7" // devnet TestUsdc builder
 }
 ```
 

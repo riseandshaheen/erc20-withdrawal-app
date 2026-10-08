@@ -21,7 +21,7 @@ $(CARTESI_TEST_MACHINE_IMAGES):
 	@wget -nc -i dependencies -P $(DOWNLOADS_DIR)
 	@shasum -ca 256 dependencies.sha256
 	@cd $(DOWNLOADS_DIR) && ln -s rootfs-tools.ext2 rootfs.ext2
-	@cd $(DOWNLOADS_DIR) && ln -s linux-6.5.13-ctsi-1-v0.20.0.bin linux.bin
+	@cd $(DOWNLOADS_DIR) && ln -s linux-6.5.13-ctsi-2-v0.21.0.bin linux.bin
 
 download-dependencies: | $(CARTESI_TEST_MACHINE_IMAGES)
 
@@ -38,8 +38,8 @@ erc20-withdrawal-dapp: .cartesi/image ## ERC-20 withdrawal test dapp
 	echo "Creating ERC-20 withdrawal test application"
 	mkdir -p .cartesi
 	rm -rf .cartesi/image
-	PORTAL=$${CARTESI_DEVNET_ERC20_PORTAL_ADDRESS:-0x22E57511C30CcE6CDaa742E13CE3b774fDC663b1}; \
-	TOKEN=$${CARTESI_DEVNET_TEST_ERC20_ADDRESS:-0x88A2120B7068E78692C8fd12E751d610B6377E4d}; \
+	PORTAL=$${CARTESI_DEVNET_ERC20_PORTAL_ADDRESS:-0x3332DE61a8BB9aC84893b2f552Fe81C9a6dC5419}; \
+	TOKEN=$${CARTESI_DEVNET_TEST_ERC20_ADDRESS:-0x7a051EDffC0884cd88d4a377F4C87BE074CF6c81}; \
 	cartesi-machine --ram-length=128Mi \
 		--ram-image=$(DOWNLOADS_DIR)/linux.bin \
 		--flash-drive=label:root,data_filename:$(DOWNLOADS_DIR)/rootfs.ext2 \
@@ -53,7 +53,7 @@ deploy-erc20-withdrawal-dapp: .cartesi/image ## Deploy ERC-20 withdrawal test ap
 	@set -e; \
 	APP=$${APP:-erc20-withdrawal-dapp}; \
 	GUARDIAN=$${GUARDIAN:-0x70997970C51812dc3A010C7d01b50e0d17dc79C8}; \
-	BUILDER=$${CARTESI_DEVNET_WITHDRAWAL_OUTPUT_BUILDER_ADDRESS:-0x0745787835A019cd4dae8EDB541Fbc0647793d63}; \
+	BUILDER=$${CARTESI_DEVNET_WITHDRAWAL_OUTPUT_BUILDER_ADDRESS:-0xB4D253c7a110241561B3eD6d632846dF7d4e9Af7}; \
 	DRIVE_START_INDEX=$$(jq -r '.config.flash_drive[] | select(.length == 4194304) | (.start / 4194304 | floor)' \
 		.cartesi/image/config.json); \
 	WITHDRAWAL_CONFIG=$$(jq -cn \
